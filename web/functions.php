@@ -107,7 +107,7 @@
 
         $time = intval(preg_replace("/[^0-9 ]/", '', $time)) * $array[$unit];
 
-        $stmt = $mysqli->prepare("SELECT * FROM `history` WHERE abs(minute(CURRENT_TIMESTAMP) - minute(DATE_FORMAT(`time`, '%Y-%m-%d %H:%i:00'))), " . $time . ") = 0" . $after . " LIMIT 3");
+        $stmt = $mysqli->prepare("SELECT * FROM `history` WHERE abs((CURRENT_TIMESTAMP) - (DATE_FORMAT(`time`, '%Y-%m-%d %H:%i:00'))), " . $time . ") = 0" . $after . " LIMIT 3");
         $stmt->execute();
 
         $stmt->store_result();
