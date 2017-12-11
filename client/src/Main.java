@@ -15,30 +15,95 @@ public class Main {
      * Current -- https://api.coinbase.com/v2/prices/BTC-USD/spot
      */
 
-
     public static void main(String[] args) {
         Exchange exchange = new ExchangeSimulator();
 
-        System.out.println("INITIAL: " + exchange.getCoins() + " coins and $" + exchange.getFiat());
-        exchange.buy(100);
-        System.out.println("BUY 100: " + exchange.getCoins() + " coins and $" + exchange.getFiat());
-        exchange.sell(0.5);
-        System.out.println("SELL .5: " + exchange.getCoins() + " coins and $" + exchange.getFiat());
-
         Timer timer = new Timer();
         timer.schedule(new TimerTask() {public void run() {
-            check("btc");
-            check("eth");
-            check("ltc");
-        }}, 0, 30000);
+            Object[] btc = check("ltc");
+
+            if(btc == null) {
+                System.out.println("Warning: Failed to fetch prices.");
+            } else 
+            //Object[] eth = check("eth");
+            //Object[] ltc = check("ltc");
+
+            spend(exchange, btc); // can't do multiple currencies cause shared `last` variable
+        }}, 0, 10 * 60000);
     }
 
-    public static void check(String currency) {
+    protected static double last = 0;
+
+    public static void spend(Exchange exchange, Object[] data) {
+        double difference = 2;
+        double range = 5;
+        double risk = 5;
+
+        double multiplier = 0;
+
+        boolean buy = (boolean) data[0];
+        boolean sell = (boolean) data[1];
+        boolean trading = false;
+        double confidence = (double) data[2];
+
+        if(buy) {
+            if(last < -range || last == 0 || Math.abs(confidence - last) >= difference) {
+                last = confidence;
+                multiplier = Math.min(1, confidence / 100 * risk);
+                trading = true;
+            }
+        } else if(sell) {
+            if(last > range || last == 0 || Math.abs(confidence - last) >= difference) {
+                last = confidence;
+                multiplier = Math.min(1, confidence / -100 * risk);
+                trading = true;
+            }
+        }
+
+        if(trading) {
+            double tradingcoins = exchange.getCoins() * multiplier;
+
+            if(multiplier > 0 && multiplier < 1) {
+                boolean transacted = false;
+
+                if(sell) {
+                    if(tradingcoins < exchange.getCoins()) {
+                        System.out.println("    Selling " + tradingcoins + " coins for +$" + exchange.toFiat(tradingcoins) + " USD.");
+                        exchange.sell(tradingcoins);
+                        transacted = true;
+                    }
+                } else if(buy) {
+                    if(exchange.toFiat(tradingcoins) < exchange.getFiat()) {
+                        System.out.println("    Buying " + tradingcoins + " coins for -$" + exchange.toFiat(tradingcoins) + " USD.");
+                        exchange.buy(tradingcoins);
+                        transacted = true;
+                    }
+                } else {
+                    System.out.println("Warning: Invalid trade attempt detected. Cannot use buy or sell.");
+                }
+
+                if(transacted) {
+                    System.out.println("    Transaction complete. Current balance: [ " + exchange.getCoins() + " coins, $" + exchange.getFiat() + "USD ].");
+                }
+
+                //System.out.println(confidence + ": " + multiplier + " * " + exchange.getCoins() + " = " + sellcoins;
+            } else {
+                System.out.println("Warning: Invalid trade attempt detected. Debug info to follow...\n    " + exchange.getCoins() + " coins * " + multiplier + " = null. Multiplier invalid.");
+            }
+        }
+    }
+
+    public static Object[] check(String currency) {
         double currentPrice = getPrice(currency, CURRENCY);
 
         double hourPrice = getPrice(currency, CURRENCY, getDate("hour", -2));
+        try {Thread.sleep(1000);}catch(Exception e){}
         double dayPrice = getPrice(currency, CURRENCY, getDate("day", -1));
+        try {Thread.sleep(1000);}catch(Exception e){}
         double weekPrice = getPrice(currency, CURRENCY, getDate("week", -1));
+System.out.println(currentPrice + " and " + hourPrice + " and " + dayPrice);
+        if(currentPrice == -1 || hourPrice == -1 || dayPrice == -1 || weekPrice == -1)
+            return null;
 
         double hourPercentage = getPercent(currentPrice, hourPrice);
         double dayPercentage = getPercent(currentPrice, dayPrice);
@@ -46,7 +111,7 @@ public class Main {
 
         double buyorsell = 0;
 
-        buyorsell -= hourPercentage;
+        buyorsell -= hourPercentage + 1;
         buyorsell -= dayPercentage / 2;
         buyorsell -= weekPercentage / 4;
 
@@ -55,9 +120,9 @@ public class Main {
         boolean buy = buyorsell > range;
         boolean sell = buyorsell < -range;
 
-        System.out.println((int)buyorsell + ": " + (buy ? "BUY" : (sell ? "SELL" : "NO ACTION")) + ": " + currency.toUpperCase());
+        System.out.print("\r" + (int)buyorsell + ": " + (buy ? "BUY" : (sell ? "SELL" : "NO ACTION")) + ": " + currency.toUpperCase() + "        ");
 
-        //System.out.println(hourPercentage + "\n" + dayPercentage + "\n" + weekPercentage);
+        return new Object[] {buy, sell, buyorsell};
     }
 
     public static double getPercent(double from, double to) {

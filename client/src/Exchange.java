@@ -1,6 +1,6 @@
 public class Exchange {
     private double coins = 10;
-    private double fiat = 1000;
+    private double fiat = 5000;
     private double fpc = 500;
 
     public boolean sell(double amount) {return false;}
@@ -29,5 +29,13 @@ public class Exchange {
 
     protected void setFiatPerCoin(double fpc) {
         this.fpc = fpc;
+    }
+
+    public double toCoins(double fiat) {
+        return fiat / this.getFiatPerCoin();
+    }
+
+    public double toFiat(double coins) {
+        return coins * this.getFiatPerCoin();
     }
 }

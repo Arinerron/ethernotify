@@ -14,11 +14,11 @@ public class ExchangeSimulator extends Exchange {
     // buy x in fiat
     @Override
     public boolean buy(double amount) {
-        if(amount <= 0 || amount > this.getFiat())
+        if(amount <= 0 || (amount * this.getFiatPerCoin()) > this.getFiat())
             return false;
 
-        this.setFiat(this.getFiat() - amount);
-        this.setCoins(this.getCoins() + (amount / this.getFiatPerCoin()));
+        this.setCoins(this.getCoins() + amount);
+        this.setFiat(this.getFiat() - (amount * this.getFiatPerCoin()));
 
         return true;
     }
